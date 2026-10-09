@@ -127,6 +127,22 @@ tr.click:hover td{background:var(--gold-l)}
 #login .sheet{text-align:left}
 #login img{height:34px;margin-bottom:16px}
 
+
+/* 3D */
+.view-seg{position:absolute;left:12px;top:12px;display:flex;background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px;z-index:5;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.view-seg button{border:0;background:none;border-radius:999px;padding:6px 14px;font-weight:700;color:var(--ink-2)}
+.view-seg button.on{background:var(--ink);color:#fff}
+#v3d{position:absolute;inset:0;background:#fff}
+#v3dCanvas{position:absolute;inset:0}
+#v3dCanvas canvas{display:block;width:100%!important;height:100%!important;touch-action:none}
+#v3dBar{position:absolute;right:12px;top:12px;display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;z-index:5}
+#v3dBar button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 10px;font-weight:600;font-size:12px}
+#v3dBar button.on{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink) inset}
+#v3dMsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--ink-3);text-align:center;padding:20px}
+.v3d-hint{position:absolute;left:12px;bottom:12px;font-size:11px;color:var(--ink-3);background:#fffc;padding:4px 8px;border-radius:6px}
+#palette.locked .pal{opacity:.45;pointer-events:none}
+#printArea .p3d{display:block;margin:0 auto 12px;max-width:100%;max-height:120mm;object-fit:contain;border:1px solid #ddd;border-radius:6px;margin-bottom:12px}
+
 /* print */
 #printArea{display:none}
 @media print{
@@ -203,6 +219,11 @@ tr.click:hover td{background:var(--gold-l)}
   <aside id="palette"></aside>
   <section id="stage">
     <svg id="cv" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="view-seg" id="viewSeg"><button data-v="2d" class="on">Pianta</button><button data-v="3d">Vista 3D</button></div>
+    <div id="v3d" class="hidden"><div id="v3dCanvas"></div>
+      <div id="v3dBar"><button data-p="iso" class="on">Assonometria</button><button data-p="front">Frontale</button><button data-p="side">Laterale</button><button data-p="top">Dall'alto</button><button id="v3dPng">Scarica immagine</button></div>
+      <div id="v3dMsg" class="hidden"></div>
+      <div class="v3d-hint">Trascina per ruotare · rotella zoom · tasto destro sposta · per modificare torna in Pianta</div></div>
     <div id="emptyMsg" class="empty-msg">Trascina qui una <b>&nbsp;torre&nbsp;</b> per iniziare<br>poi aggancia scivoli, rampe, pannelli e ponti alle pareti</div>
     <div id="modeBar" class="mode-bar hidden"><span id="modeTxt"></span><button id="modeX">Annulla</button></div>
     <div class="scale" id="scaleLbl">Griglia 50 cm</div>
@@ -247,6 +268,7 @@ const DEMO_COMPS = [
 ['9.HPCOM.01','HEXAPLAY COPERTURA TORRI 100-150-190','copertura','Copertura',null,371,0,0,'#7a4a2a',5],
 ['9.HPCOM.02','HEXAPLAY PANNELLO STANDARD 100-150-190','parete','Pannello standard',null,51.19,0,0,'#e9c46a',10],['9.HPCOM.03','HEXAPLAY PANNELLO TRIS 100-150-190','parete','Pannello tris',null,368,0,0,'#f4a261',11],
 ['9.HP100.05','HEXAPLAY SCIVOLO A TUBO 100','parete','Scivolo a tubo',100,615,250,60,'#e63946',20],['9.HP150.04','HEXAPLAY SCIVOLO A TUBO 150','parete','Scivolo a tubo',150,965,330,60,'#e63946',21],['9.HP190.01','HEXAPLAY SCIVOLO A TUBO 190','parete','Scivolo a tubo',190,835,400,60,'#e63946',22],
+['SPOLI100','SCIVOLO IN POLIETILENE H100','parete','Scivolo in polietilene',100,230,200,55,'#7cb342',23],['SPOLI150','SCIVOLO IN POLIETILENE H150','parete','Scivolo in polietilene',150,285,290,55,'#7cb342',24],
 ['9.HP100.02','HEXAPLAY RAMPA CLIMBING 100','parete','Rampa climbing',100,176,200,70,'#8d6e63',30],['9.HP150.02','HEXAPLAY RAMPA CLIMBING TORRE 150','parete','Rampa climbing',150,210,280,70,'#8d6e63',31],
 ['9.HP100.01','HEXAPLAY ARRAMPICATA A PIOLI 100','parete','Arrampicata a pioli',100,100,120,60,'#2a9d8f',40],['9.HP150.01','HEXAPLAY SCALETTA IN FUNE A PIOLI 150','parete','Scaletta in fune',150,140,60,60,'#e76f51',41],
 ['9.HP100.03','HEXAPLAY PERTICA 100','parete','Pertica',100,80,60,30,'#457b9d',50],['9.HP150.03','HEXAPLAY PERTICA 150','parete','Pertica',150,80,60,30,'#457b9d',51],
@@ -257,7 +279,7 @@ const DEMO_COMPS = [
 ['9.HP150.06','HEXAPLAY SOLO PERTICA IN ACCIAIO 150','ricambio',null,150,57.9,0,0,null,90],['9.HP02.00','HEXAPLAY COMPOSIZIONE 2 TORRI "A"','kit',null,null,3950,0,0,null,95]
 ].map(r=>({codice:r[0],descrizione:r[1],categoria:r[2],famiglia:r[3],altezza:r[4],costo:r[5],ingombro_cm:r[6],larghezza_cm:r[7],colore:r[8],ordine:r[9],attivo:true,um:'PZ'}));
 DEMO_COMPS.filter(c=>c.categoria==='torre').forEach(c=>c.note='Comprende: 6 staffe di base universali per fissaggio al terreno, 6 staffe di supporto pavimento, pianale in web brown, 6 montanti');
-const DEMO_KIT=[['9.HP100.05','3.HPCOM.03',1],['9.HP150.04','3.HPCOM.03',1],['9.HP190.01','3.HPCOM.03',1],['9.HPCOM.02','3.HPCOM.02',1],['9.HPCOM.03','3.HPCOM.02',1],['9.HPCOM.01','3.HPCOM.07',6]].map(r=>({padre:r[0],figlio:r[1],quantita:r[2]}));
+const DEMO_KIT=[['9.HP100.05','3.HPCOM.03',1],['9.HP150.04','3.HPCOM.03',1],['9.HP190.01','3.HPCOM.03',1],['9.HPCOM.02','3.HPCOM.02',1],['9.HPCOM.03','3.HPCOM.02',1],['9.HPCOM.01','3.HPCOM.07',6],['SPOLI100','3.HPCOM.03',1],['SPOLI150','3.HPCOM.03',1]].map(r=>({padre:r[0],figlio:r[1],quantita:r[2]}));
 
 /* ================= STATE ================= */
 let sb=null, user=null, isAdmin=false;
@@ -268,7 +290,8 @@ let pending=null;        // {kind:'tower',h} | {kind:'fam',fam} | {kind:'roof'}
 let hist=[], fut=[];
 let dirty=false;
 let VB={x:-400,y:-300,w:800,h:600};
-let hover=null;          // preview target during drag
+let hover=null;
+let view3D=false;          // preview target during drag
 
 function blankProject(){return {id:null,nome:'',cliente:'',data:today(),note:'',ricarico:null,towers:[],items:[],seq:1};}
 function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
@@ -555,7 +578,7 @@ function itemPoly(it){
 }
 const pts=a=>a.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
 function shortName(it,t){
-  const c=itemComp(it);const f=it.fam.replace('a tubo','').replace('climbing','').replace('tibetano','').replace(' a pioli','').replace('in fune','fune').trim();
+  const c=itemComp(it);const f=it.fam.replace('a tubo','tubo').replace('in polietilene','PE').replace('climbing','').replace('tibetano','').replace(' a pioli','').replace('in fune','fune').trim();
   return f+(famCat(it.fam)!=='ponte'&&!itemInvalid(it)&&c&&c.altezza?' '+c.altezza:'');
 }
 function svgContent(forPrint){
@@ -737,7 +760,7 @@ function renderTotals(){
   $('#dist').innerHTML=b.rows.length?b.rows.map(r=>`<tr class="${r.cat==='sotto'?'sub':''}"><td class="code">${esc(r.codice)}</td><td>${esc(r.descrizione.replace('HEXAPLAY ',''))}<div style="color:var(--ink-3);font-size:11px">${eur(r.costo)} cad.</div>${CMAP[r.codice].note?`<div style="color:var(--ink-3);font-size:11px;font-style:italic">${esc(CMAP[r.codice].note)}</div>`:''}</td><td class="n">${num(r.q)}</td><td class="n">${eur(r.tot)}</td></tr>`).join(''):`<tr><td colspan="4" style="color:var(--ink-3);text-align:center;padding:16px">Nessun componente</td></tr>`;
 }
 $('#tRic').addEventListener('change',e=>{const v=parseFloat(String(e.target.value).replace(',','.'));if(isNaN(v))return;commit();P.ricarico=v/100;renderTotals();});
-function renderAll(){render();renderSide();renderTotals();
+function renderAll(){render();renderSide();renderTotals();if(view3D)rebuild3D(false);
   $('#pNome').value=P.nome;$('#pCliente').value=P.cliente||'';$('#pData').value=P.data||today();}
 ['pNome','pCliente','pData'].forEach(id=>$('#'+id).addEventListener('input',e=>{const k={pNome:'nome',pCliente:'cliente',pData:'data'}[id];P[k]=e.target.value;setDirty(true);}));
 
@@ -872,11 +895,12 @@ $('#bPrint').onclick=()=>{
     <div class="row" style="flex-direction:column;align-items:stretch">
     <button class="btn primary" data-pv="int">Interna: pianta + distinta con costi</button>
     <button class="btn" data-pv="cli">Cliente: pianta + componenti + prezzo (senza costi)</button>
+    <label class="chk" style="margin:4px 0 0"><input type="checkbox" id="pv3d" checked> Includi vista 3D (assonometria)</label>
     <button class="btn" id="pvX">Annulla</button></div></div>`;
   $('#pvX').onclick=closeModal;
-  m.querySelectorAll('[data-pv]').forEach(b=>b.onclick=()=>{closeModal();doPrint(b.dataset.pv==='int');});
+  m.querySelectorAll('[data-pv]').forEach(b=>b.onclick=async()=>{const w3=$('#pv3d').checked;closeModal();let img=null;if(w3&&P.towers.length){try{img=await render3DImage(1800,1100,'iso');}catch(e){toast('Vista 3D non disponibile in stampa',true);}}doPrint(b.dataset.pv==='int',img);});
 };
-function doPrint(internal){
+function doPrint(internal,img3d){
   const b=bom();const bb=bbox();const pad=60;const vb=[bb[0]-pad,bb[1]-pad,bb[2]-bb[0]+pad*2,bb[3]-bb[1]+pad*2];
   const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb.join(' ')}">${svgContent(true)}</svg>`;
   const main=b.rows.filter(r=>r.cat!=='sotto');
@@ -886,10 +910,232 @@ function doPrint(internal){
   const tot=internal?`<tr><td>Costo componenti</td><td class="n">${eur(b.costo)}</td></tr><tr><td>Ricarico</td><td class="n">${num(b.ric*100)} %</td></tr><tr><td><b>Prezzo di vendita</b></td><td class="n"><b>${eur(b.prezzo)}</b></td></tr><tr><td>Margine</td><td class="n">${eur(b.prezzo-b.costo)}</td></tr>`
     :`<tr><td><b>Prezzo composizione (IVA esclusa)</b></td><td class="n"><b>${eur(b.prezzo)}</b></td></tr>`;
   $('#printArea').innerHTML=`<div class="ph"><div><h1>Hexaplay · ${esc(P.nome||'Composizione')}</h1><div class="meta">${P.cliente?'Cliente: '+esc(P.cliente)+' · ':''}Data: ${P.data?new Date(P.data).toLocaleDateString('it-IT'):''}${internal?' · DOCUMENTO INTERNO':''}</div></div><img src="${LOGO}"></div>
-    ${svg}${tbl}<div class="ptot"><table>${tot}</table></div>
-    <div class="foot">Zennaro Legnami S.r.l. – ramo Arcaland · S.S. Romea 24, 45014 Porto Viro (RO) · Filiale: Via V. Agosti 3, 42124 Reggio Emilia · P.IVA 03347220273 · info.arcaland@zennarolegnami.com<br>Pianta indicativa, non in scala esecutiva. Aree di sicurezza UNI EN 1176 da verificare in fase di progetto.</div>`;
+    ${img3d?`<img class="p3d" src="${img3d}">`:''}${svg}${tbl}<div class="ptot"><table>${tot}</table></div>
+    <div class="foot">Zennaro Legnami S.r.l. – ramo Arcaland · S.S. Romea 24, 45014 Porto Viro (RO) · Filiale: Via V. Agosti 3, 42124 Reggio Emilia · P.IVA 03347220273 · info.arcaland@zennarolegnami.com<br>Pianta e vista 3D indicative, non in scala esecutiva. Aree di sicurezza UNI EN 1176 da verificare in fase di progetto.</div>`;
   setTimeout(()=>window.print(),50);
 }
+
+/* ================= VISTA 3D (assonometria) ================= */
+const THREE_URLS=['https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js','https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js'];
+let threeLoading=null;
+function loadThree(){
+  if(window.THREE&&THREE.OrbitControls)return Promise.resolve();
+  if(threeLoading)return threeLoading;
+  const load=u=>new Promise((res,rej)=>{const s=document.createElement('script');s.src=u;s.onload=res;s.onerror=()=>rej(new Error('Impossibile caricare '+u));document.head.appendChild(s);});
+  threeLoading=load(THREE_URLS[0]).then(()=>load(THREE_URLS[1]));
+  return threeLoading;
+}
+const C3={edge:0x2a2a2a,wood:0xd9a55b,woodD:0xb98642,deck:0x5b3f2c,steel:0xb8bec4,ground:0xf1efe8,rope:0xe8c430,ropeJ:0xd9534f,base:0x8f969c,roof:0x6e4a2f};
+function mat(c){return new THREE.MeshLambertMaterial({color:c,side:THREE.DoubleSide});}
+function edged(mesh,ang){const e=new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry,ang||25),new THREE.LineBasicMaterial({color:C3.edge,transparent:true,opacity:.75}));mesh.add(e);return mesh;}
+function M(geo,c,edges){const m=new THREE.Mesh(geo,mat(c));m.castShadow=true;m.receiveShadow=true;if(edges!==false)edged(m);return m;}
+function boxM(w,h,d,c,edges){return M(new THREE.BoxGeometry(w,h,d),c,edges);}
+function rod(a,b,r,c,seg){ // cylinder between two Vector3
+  const d=new THREE.Vector3().subVectors(b,a);const L=d.length();
+  const m=M(new THREE.CylinderGeometry(r,r,L,seg||8),c,false);
+  m.position.copy(a).addScaledVector(d,.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());return m;
+}
+function beam(a,b,w,h,c){ // box between two points (local frame: length along x)
+  const d=new THREE.Vector3().subVectors(b,a);const L=d.length();
+  const m=boxM(L,h,w,c);m.position.copy(a).addScaledVector(d,.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(1,0,0),d.clone().normalize());return m;
+}
+const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+const hexCol=s=>new THREE.Color(s||'#999999').getHex();
+function postTop(t){return t.h+(t.roof?165:105);}
+/* frame of a wall: group at wall mid, deck level 0; local x = outward normal, z = tangent */
+function wallGroup(t,k){const g=new THREE.Group();const m=wallMid(t,k),n=wallN(k);g.position.set(m[0],0,m[1]);g.rotation.y=-Math.atan2(n[1],n[0]);return g;}
+
+function buildTower(root,t){
+  const H=t.h,pts=hexPts(t),top=postTop(t);
+  // deck (web brown)
+  const sh=new THREE.Shape();hexPts({x:0,y:0},SET.lato-4).forEach((p,i)=>i?sh.lineTo(p[0],p[1]):sh.moveTo(p[0],p[1]));
+  const dg=new THREE.ExtrudeGeometry(sh,{depth:4,bevelEnabled:false});dg.rotateX(Math.PI/2);
+  const deck=M(dg,C3.deck);deck.position.set(t.x,H,t.y);root.add(deck);
+  // deck support beams
+  for(let k=0;k<6;k++){const [p,q]=wallEnds(t,k);root.add(beam(V(p[0],H-8,p[1]),V(q[0],H-8,q[1]),5,9,C3.woodD));}
+  // posts + bases + caps
+  pts.forEach(p=>{
+    const post=boxM(9,top,9,C3.wood);post.position.set(p[0],top/2,p[1]);root.add(post);
+    const b=boxM(14,6,14,C3.base);b.position.set(p[0],3,p[1]);root.add(b);
+    if(!t.roof){const cap=M(new THREE.ConeGeometry(7,8,4),0xe9e2d0);cap.position.set(p[0],top+4,p[1]);cap.rotation.y=Math.PI/4;root.add(cap);}
+  });
+  if(t.roof){
+    const R=SET.lato+18;const cone=M(new THREE.ConeGeometry(R,95,6,1,true),C3.roof);cone.rotation.y=Math.PI/6;cone.position.set(t.x,top+47.5,t.y);root.add(cone);
+    for(let k=0;k<6;k++){const [p,q]=wallEnds(t,k);root.add(beam(V(p[0],top-4,p[1]),V(q[0],top-4,q[1]),5,8,C3.woodD));}
+  }
+}
+function buildPanel(g,t,c,tris){
+  const w=SET.lato-14;const p=boxM(3,82,w,hexCol(c.colore));p.position.set(-2,t.h+50,0);g.add(p);
+  if(tris){for(let i=0;i<3;i++)for(let j=0;j<3;j++){const cy=M(new THREE.CylinderGeometry(7,7,14,12),(i+j)%2?0xd9534f:0xf2c230,false);cy.rotation.x=Math.PI/2;cy.position.set(4,t.h+30+j*20,(i-1)*22);g.add(cy);}
+    g.add(rod(V(4,t.h+18,-30),V(4,t.h+82,-30),2,C3.steel));g.add(rod(V(4,t.h+18,30),V(4,t.h+82,30),2,C3.steel));}
+}
+function channel(g,u0,y0,u1,y1,W,col){
+  const a=V(u0,y0,0),b=V(u1,y1,0);
+  const bed=beam(a,b,W,3,col);g.add(bed);
+  const L=a.distanceTo(b),ang=Math.atan2(y1-y0,u1-u0);
+  [-1,1].forEach(s=>{const side=boxM(L,22,4,col);side.position.set((u0+u1)/2-Math.sin(ang)*11,(y0+y1)/2+Math.cos(ang)*11,s*(W/2));side.rotation.z=ang;g.add(side);});
+}
+function buildSlidePE(g,t,c){
+  const H=t.h,L=c.ingombro_cm||200,W=(c.larghezza_cm||55)-10,col=hexCol(c.colore);
+  const run=Math.min(60,L*.25),start=30;
+  channel(g,0,H+2,start,H+2,W,col);
+  channel(g,start,H+2,L-run,28,W,col);
+  channel(g,L-run,28,L,24,W,col);
+  const leg=boxM(6,24,W,C3.base);leg.position.set(L-8,12,0);g.add(leg);
+}
+function buildSlideTube(g,t,c){
+  const H=t.h,L=c.ingombro_cm||250,col=hexCol(c.colore);
+  const curve=new THREE.CatmullRomCurve3([V(0,H+30,0),V(L*.18,H*.86+20,0),V(L*.5,H*.48+18,0),V(L*.82,H*.15+30,0),V(L,32,0)]);
+  const tube=M(new THREE.TubeGeometry(curve,48,32,20,false),col,false);g.add(tube);
+  // entry hood & supports
+  const hood=M(new THREE.CylinderGeometry(36,36,8,20,1,true),col,false);hood.rotation.z=Math.PI/2;hood.position.set(0,H+30,0);g.add(hood);
+  g.add(rod(V(L*.55,0,0),V(L*.55,H*.48-12,0),4,C3.steel));
+  g.add(rod(V(L*.88,0,0),V(L*.88,8+20,0),4,C3.steel));
+}
+function buildRamp(g,t,c){
+  const H=t.h,L=c.ingombro_cm||200,W=c.larghezza_cm||70,col=hexCol(c.colore);
+  const b=beam(V(0,H,0),V(L,0,0),W,5,col);g.add(b);
+  const ang=Math.atan2(-H,L),len=Math.hypot(L,H);
+  const cols=[0xf2c230,0xd9534f,0x3fa36f,0x3a7bd5];
+  for(let i=1;i<len/28;i++){const f=i*28/len;[-1,1].forEach((s,j)=>{const gr=M(new THREE.SphereGeometry(4.5,8,6),cols[(i+j)%4],false);gr.position.set(L*f-Math.sin(ang)*4,H*(1-f)+Math.cos(ang)*4,s*(W/4)*((i%2)?1:.4));g.add(gr);});}
+  g.add(rod(V(0,H+60,W/2),V(L*.6,H*.4+40,W/2),2,C3.steel));g.add(rod(V(0,H+60,-W/2),V(L*.6,H*.4+40,-W/2),2,C3.steel));
+}
+function buildLadder(g,t,c){
+  const H=t.h,L=c.ingombro_cm||120,W=c.larghezza_cm||60;
+  [-1,1].forEach(s=>g.add(beam(V(0,H+40,s*W/2),V(L,0,s*W/2),5,10,C3.wood)));
+  const n=Math.max(3,Math.round(H/28));for(let i=1;i<n;i++){const f=i/n;g.add(rod(V(L*f,H+40-(H+40)*f,-W/2),V(L*f,H+40-(H+40)*f,W/2),2.5,0xa04a7a));}
+}
+function buildRopeLadder(g,t,c){
+  const H=t.h,L=c.ingombro_cm||60,W=c.larghezza_cm||60;
+  g.add(rod(V(4,H+60,-W/2-6),V(4,H+60,W/2+6),3,C3.steel));
+  [-1,1].forEach(s=>g.add(rod(V(4,H+60,s*W/2),V(L,4,s*W/2),1.8,0x3a7bd5,6)));
+  for(let y=30;y<H+40;y+=32){const f=1-y/(H+60);const u=4+(L-4)*f;g.add(rod(V(u,y,-W/2),V(u,y,W/2),3.5,C3.ropeJ));}
+}
+function buildPole(g,t,c){
+  const H=t.h,L=c.ingombro_cm||60;
+  g.add(rod(V(L,0,0),V(L,H+130,0),3.5,C3.steel,12));
+  g.add(rod(V(-2,H+130,0),V(L,H+130,0),3.5,C3.steel,12));
+  const f=boxM(14,6,14,C3.base);f.position.set(L,3,0);g.add(f);
+}
+function buildBridge(root,it){
+  const t=T(it.tower);const a2=wallMid(t,it.wall);const A=V(a2[0],t.h,a2[1]);
+  let B;if(it.tower2!=null){const t2=T(it.tower2);const b2=wallMid(t2,it.wall2);B=V(b2[0],t2.h,b2[1]);}else{const e=bridgeEnd(it);B=V(e[0],t.h,e[1]);}
+  const c=variant(it.fam,null)||{};const W=(c.larghezza_cm||70)/2;
+  const dir=new THREE.Vector3().subVectors(B,A);const L=Math.hypot(dir.x,dir.z);const side=V(-dir.z,0,dir.x).normalize();
+  const P=(f,s,h)=>V(A.x+dir.x*f+side.x*s,A.y+dir.y*f+h,A.z+dir.z*f+side.z*s);
+  const n=Math.max(4,Math.round(L/22));
+  for(let i=0;i<=n;i++){const f=i/n;root.add(beam(P(f,-W,0),P(f,W,0),9,3,0xc98d4a));
+    [-1,1].forEach(s=>root.add(rod(P(f,s*W,0),P(f,s*W,88),1.4,C3.rope,5)));}
+  [-1,1].forEach(s=>{[0,30,60,88].forEach(h=>root.add(rod(P(0,s*W,h),P(1,s*W,h),h===88?2.4:1.6,C3.rope,6)));
+    for(let i=0;i<=n;i+=2){[30,60].forEach(h=>{const j=M(new THREE.SphereGeometry(2.6,8,6),C3.ropeJ,false);j.position.copy(P(i/n,s*W,h));root.add(j);});}});
+}
+function buildScene(){
+  const root=new THREE.Group();
+  P.towers.forEach(t=>buildTower(root,t));
+  P.items.forEach(it=>{
+    const t=T(it.tower);if(!t)return;
+    if(famCat(it.fam)==='ponte'){buildBridge(root,it);return;}
+    const c=variant(it.fam,t.h);if(!c)return; // non disponibile: non disegnato
+    const g=wallGroup(t,it.wall);const f=it.fam.toLowerCase();
+    if(f.includes('pannello'))buildPanel(g,t,c,f.includes('tris'));
+    else if(f.includes('tubo'))buildSlideTube(g,t,c);
+    else if(f.includes('scivolo'))buildSlidePE(g,t,c);
+    else if(f.includes('rampa'))buildRamp(g,t,c);
+    else if(f.includes('fune'))buildRopeLadder(g,t,c);
+    else if(f.includes('pertica'))buildPole(g,t,c);
+    else if(f.includes('pioli')||f.includes('scal'))buildLadder(g,t,c);
+    else {const L=c.ingombro_cm||60;const b=boxM(L,20,c.larghezza_cm||50,hexCol(c.colore));b.position.set(L/2,t.h/2,0);g.add(b);}
+    root.add(g);
+  });
+  return root;
+}
+function makeWorld(root){
+  const scene=new THREE.Scene();scene.background=new THREE.Color(0xffffff);
+  scene.add(new THREE.HemisphereLight(0xffffff,0xd8d2c4,.75));
+  const box=new THREE.Box3().setFromObject(root);const ctr=box.getCenter(new THREE.Vector3());const size=box.getSize(new THREE.Vector3());
+  const dl=new THREE.DirectionalLight(0xffffff,.55);dl.position.set(ctr.x+400,900,ctr.z+600);dl.target.position.copy(ctr);
+  dl.castShadow=true;const r=Math.max(size.x,size.z)+400;Object.assign(dl.shadow.camera,{left:-r,right:r,top:r,bottom:-r,near:10,far:3000});dl.shadow.mapSize.set(2048,2048);dl.shadow.bias=-0.0005;
+  scene.add(dl,dl.target);
+  const gr=new THREE.Mesh(new THREE.PlaneGeometry(r*4,r*4),new THREE.ShadowMaterial({opacity:.14}));gr.rotation.x=-Math.PI/2;gr.receiveShadow=true;gr.position.set(ctr.x,0,ctr.z);scene.add(gr);
+  scene.add(root);
+  return {scene,box,ctr,size,root};
+}
+const PRESETS={iso:[1,.72,1],front:[0,.08,1],side:[1,.08,0],top:[0,1,0]};
+function aimCamera(cam,w,preset,aspect){
+  const d=new THREE.Vector3(...PRESETS[preset]).normalize();const R=w.size.length()/2+40;
+  cam.up.set(0,1,0);if(preset==='top')cam.up.set(0,0,-1);
+  cam.position.copy(w.ctr).addScaledVector(d,R*4);cam.lookAt(w.ctr);
+  // fit ortho frustum to projected bbox
+  cam.updateMatrixWorld();const inv=cam.matrixWorldInverse;let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+  w.root.updateMatrixWorld(true);
+  w.root.traverse(o=>{if(!o.isMesh)return;const g=o.geometry;if(!g.boundingBox)g.computeBoundingBox();const bb=g.boundingBox;
+    [bb.min.x,bb.max.x].forEach(x=>[bb.min.y,bb.max.y].forEach(y=>[bb.min.z,bb.max.z].forEach(z=>{const p=V(x,y,z).applyMatrix4(o.matrixWorld).applyMatrix4(inv);x0=Math.min(x0,p.x);x1=Math.max(x1,p.x);y0=Math.min(y0,p.y);y1=Math.max(y1,p.y);})));});
+  let hw=(x1-x0)/2*1.08,hh=(y1-y0)/2*1.1;if(hw/hh>aspect)hh=hw/aspect;else hw=hh*aspect;
+  const cx=(x0+x1)/2,cy=(y0+y1)/2;
+  // shift camera so projected center is centered
+  const right=V(1,0,0).applyQuaternion(cam.quaternion),up=V(0,1,0).applyQuaternion(cam.quaternion);
+  const tgt=w.ctr.clone().addScaledVector(right,cx).addScaledVector(up,cy);
+  cam.position.addScaledVector(right,cx).addScaledVector(up,cy);
+  Object.assign(cam,{left:-hw,right:hw,top:hh,bottom:-hh,near:1,far:R*12,zoom:1});cam.updateProjectionMatrix();
+  return tgt;
+}
+/* live viewer */
+let V3=null;
+async function show3D(on){
+  view3D=on;
+  document.querySelectorAll('#viewSeg button').forEach(b=>b.classList.toggle('on',(b.dataset.v==='3d')===on));
+  $('#cv').classList.toggle('hidden',on);$('#v3d').classList.toggle('hidden',!on);
+  document.querySelectorAll('.zoom,.scale').forEach(e=>e.classList.toggle('hidden',on));
+  $('#palette').classList.toggle('locked',on);
+  if(on){setPending(null);
+    if(!P.towers.length){$('#v3dMsg').textContent='Componi il gioco in pianta: qui vedrai la vista 3D.';$('#v3dMsg').classList.remove('hidden');return;}
+    $('#v3dMsg').textContent='Caricamento vista 3D…';$('#v3dMsg').classList.remove('hidden');
+    try{await loadThree();}catch(e){$('#v3dMsg').textContent='Vista 3D non disponibile: '+e.message;return;}
+    $('#v3dMsg').classList.add('hidden');rebuild3D(true);
+  }
+}
+function rebuild3D(reaim){
+  if(!view3D||!window.THREE||!THREE.OrbitControls)return;
+  const host=$('#v3dCanvas');const W=host.clientWidth,H=host.clientHeight;if(!W||!H)return;
+  if(!V3){
+    const r=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});r.setPixelRatio(Math.min(window.devicePixelRatio,2));r.shadowMap.enabled=true;r.shadowMap.type=THREE.PCFSoftShadowMap;
+    host.appendChild(r.domElement);const cam=new THREE.OrthographicCamera(-1,1,1,-1,1,10);
+    const ctl=new THREE.OrbitControls(cam,r.domElement);ctl.enableDamping=true;ctl.maxPolarAngle=Math.PI/2-0.02;ctl.screenSpacePanning=true;
+    V3={r,cam,ctl,preset:'iso',w:null};
+    const loop=()=>{if(!V3)return;requestAnimationFrame(loop);if(!view3D||!V3.w)return;V3.ctl.update();V3.r.render(V3.w.scene,V3.cam);};
+    ctl.addEventListener('change',()=>{});loop();
+  }
+  V3.r.setSize(W,H);
+  if(V3.w){V3.w.scene.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose&&o.material.dispose();});}
+  V3.w=makeWorld(buildScene());
+  if(reaim||!V3.aimed){const tgt=aimCamera(V3.cam,V3.w,V3.preset,W/H);V3.ctl.target.copy(tgt);V3.aimed=true;}
+  else{const a=W/H;const hh=(V3.cam.top-V3.cam.bottom)/2;V3.cam.left=-hh*a;V3.cam.right=hh*a;V3.cam.updateProjectionMatrix();}
+  V3.ctl.update();
+}
+function setPreset(p){if(!V3)return;V3.preset=p;document.querySelectorAll('#v3dBar [data-p]').forEach(b=>b.classList.toggle('on',b.dataset.p===p));rebuild3D(true);}
+/* offscreen image for print */
+async function render3DImage(w,h,preset){
+  await loadThree();
+  const r=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});r.setPixelRatio(1);r.setSize(w,h);r.shadowMap.enabled=true;
+  const world=makeWorld(buildScene());const cam=new THREE.OrthographicCamera(-1,1,1,-1,1,10);aimCamera(cam,world,preset||'iso',w/h);
+  r.render(world.scene,cam);
+  // ritaglia i margini bianchi
+  const c2=document.createElement('canvas');c2.width=w;c2.height=h;const x=c2.getContext('2d');x.drawImage(r.domElement,0,0);
+  const d=x.getImageData(0,0,w,h).data;let x0=w,y0=h,x1=0,y1=0;
+  for(let yy=0;yy<h;yy+=2)for(let xx=0;xx<w;xx+=2){const i=(yy*w+xx)*4;if(d[i]<246||d[i+1]<246||d[i+2]<246){if(xx<x0)x0=xx;if(xx>x1)x1=xx;if(yy<y0)y0=yy;if(yy>y1)y1=yy;}}
+  r.dispose();r.forceContextLoss&&r.forceContextLoss();
+  if(x1<=x0)return c2.toDataURL('image/png');
+  const pad=30;x0=Math.max(0,x0-pad);y0=Math.max(0,y0-pad);x1=Math.min(w,x1+pad);y1=Math.min(h,y1+pad);
+  const c3=document.createElement('canvas');c3.width=x1-x0;c3.height=y1-y0;const x3=c3.getContext('2d');x3.fillStyle='#fff';x3.fillRect(0,0,c3.width,c3.height);x3.drawImage(c2,x0,y0,c3.width,c3.height,0,0,c3.width,c3.height);
+  return c3.toDataURL('image/png');
+}
+function current3DImage(){if(!V3||!view3D)return null;V3.r.render(V3.w.scene,V3.cam);return V3.r.domElement.toDataURL('image/png');}
+
+document.querySelectorAll('#viewSeg button').forEach(b=>b.onclick=()=>show3D(b.dataset.v==='3d'));
+document.querySelectorAll('#v3dBar [data-p]').forEach(b=>b.onclick=()=>setPreset(b.dataset.p));
+$('#v3dPng').onclick=()=>{const u=current3DImage();if(!u)return;const a=document.createElement('a');a.href=u;a.download='Hexaplay_'+(P.nome||'composizione').replace(/[^\w\-]+/g,'_')+'_3D.png';a.click();};
+window.addEventListener('resize',()=>{if(view3D)rebuild3D(false);});
 
 /* ================= AUTH & BOOT ================= */
 $('#bOut').onclick=async()=>{if(DEMO)return;await sb.auth.signOut();location.reload();};
